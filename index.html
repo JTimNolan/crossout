@@ -3,31 +3,59 @@
     <head>
         <title>CrossOut!!</title>
         <link rel="stylesheet" type="text/css" href="main.css">
-        <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-        <script src="main.js"></script>
+        <script src="https://html2canvas.hertzen.com/dist/html2canvas.js"></script>
+        <script defer src="main.js"></script>
+        <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     </head>
     <body>
-        <div x-data="crossout" class="p-4 bg-zinc-900 text-zinc-50 min-h-[100vh]">
+        <div x-data="crossout" class="p-4 bg-zinc-900 text-zinc-50 min-h-[100vh]" @mousemove="handleDragOver" @mouseup.document="endDrag" @keydown.document="handleKeyPress">
+            <div 
+                x-show="drag.length"
+                class="uppercase absolute flex opacity-80 cursor-grabbing  border-graytext-zinc-50 border-l-1"
+                :class="{
+                    'flex-col': dragRotation,
+                }"
+                :style="{top: (dragY - dragOffsetY)+'px', left: (dragX - dragOffsetX)+'px'}"
+            >
+                <template x-for="letter in drag">
+                    <div class="size-10 bg-zinc-600 text-center leading-10 m-0 border border-graytext-zinc-50 border-l-0" x-text="letter"></div>
+                </template>
+            </div>
             <h1 class="text-3xl text-center">CrossOut!!</h1>
             <div class="grid grid-cols-2 gap-6 w-fit m-6 mx-auto justify-center">
                 <!-- Puzzle Grid -->
-                <div class="grid grid-cols-10 w-fit border-l border-t border-graytext-zinc-50 uppercase">
-                    <template x-for="cell in cells">
+                <div class="grid grid-cols-10 w-fit border-l border-t border-graytext-zinc-50 uppercase select-none">
+                    <template x-for="(cell, index) in cells" :key="cell.key">
                         <div
-                            class="border-b border-r border-graytext-zinc-50 size-10"
-                        >
-    
-                        </div>
+                            class="drop-cell border-b border-r border-graytext-zinc-50 size-10 leading-10 text-center"
+                            :class="{
+                                'bg-zinc-600': cell.type == CellTypes.PLACED,
+                                'bg-zinc-700': cell.type == CellTypes.INITIAL,
+                            }"
+                            x-text="cell.value"
+                            @contextmenu.prevent="$event.preventDefault();clearCell(index)"
+                        ></div>
                     </template>
                 </div>
                 <!-- Word List -->
                 <div>
-                    <template x-for="word in words">
+                    <template x-for="(wordInfo, word) in wordList">
                         <div class="flex justify-start items-center uppercase">
-                            <div class="rounded-sm size-8 bg-zinc-800 border border-zinc-500 mr-2"></div>
-                            <template x-for="letter in word">
-                                <div class="size-10 bg-zinc-600 text-center leading-10 m-1 border border-graytext-zinc-50 cursor-grab select-none" x-text="letter"></div>
-                            </template>
+                            <div
+                                class="rounded-sm size-8 bg-zinc-800 border border-zinc-500 mr-2"
+                                :class="{
+                                    'bg-yellow-300': wordInfo.state == WordStates.DUPLICATED,
+                                    'bg-green-500': wordInfo.state == WordStates.VALID
+                                }"
+                            ></div>
+                            <div
+                                class="cursor-grab select-none flex"
+                                @mousedown="startDrag(word, $event)"
+                            >
+                                <template x-for="letter in word">
+                                    <div class="size-10 bg-zinc-600 text-center leading-10 m-1 border border-graytext-zinc-50" x-text="letter"></div>
+                                </template>
+                            </div>
                         </div>
                     </template>
                 </div>
