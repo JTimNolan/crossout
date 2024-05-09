@@ -1,8 +1,8 @@
-// TODO: Wordlist validation
 // TODO: Mobile optimization
 // TODO: Puzzles
 // TODO: Persistance
 // TODO: Reset buton
+// TODO: Solved state
 const CellTypes = {
     BLOCKED: -1,
     EMPTY: 0,
@@ -51,6 +51,9 @@ document.addEventListener('alpine:init', () => {
         startDrag(word, e){
             this.dragRotation = false;
             const rect = e.target.getBoundingClientRect();
+            if(e.touches){
+                e = e.touches[0];
+            }
             this.dragOffsetX = e.clientX - rect.x;
             this.dragOffsetY = e.clientY - rect.y;
             this.dragX = e.pageX;
@@ -58,6 +61,9 @@ document.addEventListener('alpine:init', () => {
             this.drag = word;
         },
         handleDragOver(e){
+            if(e.touches){
+                e = e.touches[0];
+            }
             this.dragX = e.pageX;
             this.dragY = e.pageY;
         },
@@ -65,7 +71,7 @@ document.addEventListener('alpine:init', () => {
             const draggedword = this.drag;
             this.drag = '';
             // Need to find real target based on x,y because of ghost
-            const target = document.elementsFromPoint(e.pageX, e.pageY).find(el => el.classList.contains('drop-cell'));
+            const target = document.elementsFromPoint(this.dragX, this.dragY).find(el => el.classList.contains('drop-cell'));
             if(!target){
                 return;
             }
