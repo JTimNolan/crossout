@@ -29,8 +29,10 @@
                         <div
                             class="drop-cell border-b border-r border-graytext-zinc-50 size-10 leading-10 text-center"
                             :class="{
-                                'bg-zinc-600': cell.type == CellTypes.PLACED,
-                                'bg-zinc-700': cell.type == CellTypes.INITIAL,
+                                'bg-red-800': !cell.valid && cell.type != CellTypes.INITIAL,
+                                'bg-red-900': !cell.valid && cell.type == CellTypes.INITIAL,
+                                'bg-zinc-600': cell.valid && cell.type == CellTypes.PLACED,
+                                'bg-zinc-700': cell.valid && cell.type == CellTypes.INITIAL,
                             }"
                             x-text="cell.value"
                             @contextmenu.prevent="$event.preventDefault();clearCell(index)"
