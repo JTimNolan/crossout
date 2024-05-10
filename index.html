@@ -5,6 +5,7 @@
         <link rel="stylesheet" type="text/css" href="main.css">
         <script src="https://html2canvas.hertzen.com/dist/html2canvas.js"></script>
         <script defer src="main.js"></script>
+        <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js"></script>
         <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
     </head>
@@ -25,20 +26,26 @@
             <h1 class="text-3xl text-center">CrossOut!!</h1>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 w-fit m-6 mx-auto justify-center">
                 <!-- Puzzle Grid -->
-                <div class="grid grid-cols-10 w-fit border-l border-t border-graytext-zinc-50 uppercase select-none">
-                    <template x-for="(cell, index) in cells" :key="cell.key">
-                        <div
-                            class="drop-cell border-b border-r border-graytext-zinc-50 size-6 sm:size-10 leading-6 sm:leading-10  text-center"
-                            :class="{
-                                'bg-red-800': !cell.valid && cell.type != CellTypes.INITIAL,
-                                'bg-red-950': !cell.valid && cell.type == CellTypes.INITIAL,
-                                'bg-zinc-600': cell.valid && cell.type == CellTypes.PLACED,
-                                'bg-zinc-800': cell.valid && cell.type == CellTypes.INITIAL,
-                            }"
-                            x-text="cell.value"
-                            @contextmenu.prevent="$event.preventDefault();clearCell(index)"
-                        ></div>
-                    </template>
+                <div>
+                    <div class="grid grid-cols-10 w-fit border-l border-t border-graytext-zinc-50 uppercase select-none">
+                        <template x-for="(cell, index) in cells">
+                            <div
+                                class="grid-cell drop-cell border-b border-r border-graytext-zinc-50 size-6 sm:size-10 leading-6 sm:leading-10  text-center"
+                                :class="{
+                                    'cursor-grab': cell.type == CellTypes.PLACED,
+                                    'bg-red-800': !cell.valid && cell.type != CellTypes.INITIAL,
+                                    'bg-red-950': !cell.valid && cell.type == CellTypes.INITIAL,
+                                    'bg-zinc-600': cell.valid && cell.type == CellTypes.PLACED,
+                                    'bg-zinc-800': cell.valid && cell.type == CellTypes.INITIAL,
+                                }"
+                                x-bind:data-index="index"
+                                x-text="cell.value"
+                                @contextmenu.prevent="$event.preventDefault();clearCell(index)"
+                                @mousedown="startGridDrag(cell, $event)"
+                                @touchstart="startGridDrag(cell, $event)"
+                            ></div>
+                        </template>
+                    </div>
                 </div>
                 <!-- Word List -->
                 <div>
@@ -53,8 +60,8 @@
                             ></div>
                             <div
                                 class="cursor-grab select-none flex"
-                                @mousedown="startDrag(word, $event)"
-                                @touchstart="startDrag(word, $event)"
+                                @mousedown="startListDrag(word, $event)"
+                                @touchstart="startListDrag(word, $event)"
                             >
                                 <template x-for="letter in word">
                                     <div class="size-6 sm:size-10 bg-zinc-600 text-center leading-6 sm:leading-10  m-1 border border-graytext-zinc-50" x-text="letter"></div>

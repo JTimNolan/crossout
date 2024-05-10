@@ -1,9 +1,10 @@
-// TODO: Drag words off puzzle
+// TODO: Try dragging with placedWordList
 // TODO: Mobile optimization
-// TODO: Puzzles
 // TODO: Persistance
 // TODO: Reset buton
 // TODO: Solved state
+// TODO: Seeded/generative puzzles
+// TODO: Meme puzzles
 const CellTypes = {
     BLOCKED: -1,
     EMPTY: 0,
@@ -20,35 +21,70 @@ const WordStates = {
     VALID: 1,
     DUPLICATED: 2,
 };
-let validWords = new Set();
+let validWordList = new Set();
 (async () => {
     const response = await fetch('wordlist.txt');
     const text = await response.text();
-    validWords = new Set(text.split(/\r?\n/));
+    validWordList = new Set(text.split(/\r?\n/));
 })();
 document.addEventListener('alpine:init', () => {
     Alpine.data('crossout', () => ({
+        puzzles: {
+            1: {
+                wordList: {
+                    "DEAF": {state: WordStates.NOT_PLACED},
+                    "DING": {state: WordStates.NOT_PLACED},
+                    "EN": {state: WordStates.NOT_PLACED},
+                    "FLAG": {state: WordStates.NOT_PLACED},
+                    "GY": {state: WordStates.NOT_PLACED},
+                    "GROG": {state: WordStates.NOT_PLACED},
+                    "GROSS": {state: WordStates.NOT_PLACED},
+                    "GONG": {state: WordStates.NOT_PLACED},
+                },
+                initialLetters: {
+                    13: 'E',
+                    36: 'F',
+                    54: 'G',
+                    63: 'G',
+                }
+            },
+            2: {
+                wordList: {
+                    "LAST": {state: WordStates.NOT_PLACED},
+                    "LEST": {state: WordStates.NOT_PLACED},
+                    "LIST": {state: WordStates.NOT_PLACED},
+                    "LOST": {state: WordStates.NOT_PLACED},
+                    "LUST": {state: WordStates.NOT_PLACED},
+                    "GO": {state: WordStates.NOT_PLACED},
+                    "TO": {state: WordStates.NOT_PLACED},
+                    "BATTLE": {state: WordStates.NOT_PLACED},
+                    "SOUR": {state: WordStates.NOT_PLACED},
+                    "UNTO": {state: WordStates.NOT_PLACED},
+                    "AGHAST": {state: WordStates.NOT_PLACED},
+                    "ING": {state: WordStates.NOT_PLACED},
+                    "LY": {state: WordStates.NOT_PLACED},
+                    "YOU": {state: WordStates.NOT_PLACED},
+                },
+                initialLetters: {
+                    37: 'T',
+                    41: 'T',
+                    63: 'T',
+                    76: 'T',
+                    85: 'T',
+                }
+            },
+        },
         test: 'test',
-        wordList: {
-            "DEAF": {state: WordStates.NOT_PLACED},
-            "DING": {state: WordStates.NOT_PLACED},
-            "EN": {state: WordStates.NOT_PLACED},
-            "FLAG": {state: WordStates.NOT_PLACED},
-            "GY": {state: WordStates.NOT_PLACED},
-            "GROG": {state: WordStates.NOT_PLACED},
-            "GROSS": {state: WordStates.NOT_PLACED},
-            "GONG": {state: WordStates.NOT_PLACED},
-        },
+        wordList: {},
         solvedWords: [],
-        initialLetters: {
-            13: 'E',
-            36: 'F',
-            54: 'G',
-            63: 'G',
-        },
+        initialLetters: {},
         placedLetters: {},
         cells: [],
         async init(){
+            let params = Object.fromEntries(new URLSearchParams(location.search));
+            const puzzle = this.puzzles.hasOwnProperty(params.puzzle) ? this.puzzles[params.puzzle] : this.puzzles[1];
+            this.wordList = puzzle.wordList;
+            this.initialLetters = puzzle.initialLetters;
             this.updateCells();
         },
         drag: '',
@@ -57,7 +93,30 @@ document.addEventListener('alpine:init', () => {
         dragOffsetX: 0,
         dragOffsetY: 0,
         dragRotation: false,
-        startDrag(word, e){
+        startGridDrag(cell, e){
+            if(!cell.words.length){
+                return;
+            }
+            const wordObj = cell.words[0];
+            const firstCell = this.cells[wordObj.index];
+            // Clear cells
+            wordObj.word.split('').forEach((letter, letterIndex) => {
+                const cellIndex = wordObj.index + ((letterIndex-1) * (wordObj.rotated ? 10 : 1));
+                if(this.cells[cellIndex].words.length > 1){
+                    return;
+                }
+                this.placedLetters[cellIndex] = '';
+            });
+            this.updateCells();
+            // Set up drag
+            const rect = document.querySelectorAll('.grid-cell')[wordObj.index].getBoundingClientRect();
+            this.dragOffsetX = 20;
+            this.dragOffsetY = 20;
+            this.dragX = e.pageX;
+            this.dragY = e.pageY;
+            this.drag = wordObj.word;
+        },
+        startListDrag(word, e){
             this.dragRotation = false;
             const rect = e.target.getBoundingClientRect();
             if(e.touches){
@@ -70,6 +129,9 @@ document.addEventListener('alpine:init', () => {
             this.drag = word;
         },
         handleDragOver(e){
+            if(!this.drag){
+                return;
+            }
             if(e.touches){
                 e = e.touches[0];
             }
@@ -77,10 +139,13 @@ document.addEventListener('alpine:init', () => {
             this.dragY = e.pageY;
         },
         endDrag(e){
+            if(!this.drag){
+                return;
+            }
             const draggedword = this.drag;
             this.drag = '';
             // Need to find real target based on x,y because of ghost
-            const target = document.elementsFromPoint(this.dragX, this.dragY).find(el => el.classList.contains('drop-cell'));
+            const target = document.elementsFromPoint(this.dragX, this.dragY).find(el => el.classList.contains('grid-cell'));
             if(!target){
                 return;
             }
@@ -158,7 +223,16 @@ document.addEventListener('alpine:init', () => {
         },
         updateCells(){
             this.cells = this.getCells();
-            this.validateGridWords();
+            const allGridWords = this.getGridWords();
+            this.validateGridWords(allGridWords);
+            const draggableGridWords = allGridWords.filter(x => this.wordList.hasOwnProperty(x.word));
+            console.log(draggableGridWords);
+            draggableGridWords.forEach(gridWord => {
+                gridWord.word.split('').forEach((letter, letterIndex) => {
+                    const cellIndex = gridWord.index + ((letterIndex-1) * (gridWord.rotated ? 10 : 1));
+                    this.cells[cellIndex].words.push(gridWord);
+                });
+            });
         },
         checkSolvedWords(){
             this.solvedWords = [];
@@ -191,11 +265,9 @@ document.addEventListener('alpine:init', () => {
                 this.wordList[word].state = WordStates.DUPLICATED;
             }
         },
-        validateGridWords(){
-            const rawCells = Alpine.raw(this.cells);
-            const gridWordList = [];
-            this.solvedWords = [];
-            this.invalidWords = [];
+        getGridWords(){
+            const allGridWords = [];
+            const rawCells = Object.values(Alpine.raw(this.cells));
             const getVerticalIndex = i => {
                 if(i < 10){
                     return i*10;
@@ -210,11 +282,16 @@ document.addEventListener('alpine:init', () => {
             let vWord = '';
             rawCells.forEach((cell, i) => {
                 const newRow = i%10 == 0;
-                const vCell = rawCells[getVerticalIndex(i)];
+                const vIndex = getVerticalIndex(i);
+                const vCell = rawCells[vIndex];
                 if(newRow || cell.value == ''){
                     if(hWord.length > 1){
-                        gridWordList.push(hWord);
-                        if(!validWords.has(hWord)){
+                        allGridWords.push({
+                            word: hWord,
+                            index: i - hWord.length + 1,
+                            rotated: false,
+                        });
+                        if(!validWordList.has(hWord)){
                             // Mark cells invalid
                             hWord.split('').forEach((letter, ii) => {
                                 this.cells[i-ii-1].valid = false;
@@ -228,8 +305,12 @@ document.addEventListener('alpine:init', () => {
                 }
                 if(newRow || vCell.value == ''){
                     if(vWord.length > 1){
-                        gridWordList.push(vWord);
-                        if(!validWords.has(vWord)){
+                        allGridWords.push({
+                            word: vWord,
+                            index: vIndex - (vWord.length-1)*10,
+                            rotated: true,
+                        });
+                        if(!validWordList.has(vWord)){
                             // Mark cells invalid
                             vWord.split('').forEach((letter, ii) => {
                                 this.cells[getVerticalIndex(i-1)-(ii)*10].valid = false;
@@ -242,8 +323,11 @@ document.addEventListener('alpine:init', () => {
                     vWord += vCell.value;
                 }
             });
-            console.log(gridWordList);
-            gridWordList.forEach(word => {
+            return allGridWords;
+        },
+        validateGridWords(allGridWords){
+            allGridWords.forEach(wordObj => {
+                const word = wordObj.word;
                 if(!this.wordList.hasOwnProperty(word) || this.wordList[word].state == WordStates.DUPLICATED){
                     return;
                 }
@@ -257,7 +341,7 @@ document.addEventListener('alpine:init', () => {
                 }
             });
             for(const word in this.wordList){
-                const foundCount = gridWordList.filter(row => row.includes(word)).length;
+                const foundCount = allGridWords.filter(row => row.word.includes(word)).length;
                 if(foundCount == 0){
                     this.wordList[word].state = WordStates.NOT_PLACED;
                     continue;
@@ -268,7 +352,6 @@ document.addEventListener('alpine:init', () => {
                 }
                 this.wordList[word].state = WordStates.DUPLICATED;
             }
-            console.log(Alpine.raw(this.invalidWords));
         },
         getCells(){
             return new Array(100)
@@ -276,25 +359,28 @@ document.addEventListener('alpine:init', () => {
                 .map((cell, i) => {
                     if(this.initialLetters.hasOwnProperty(i)){
                         return {
+                            valid: true,
+                            words: [],
                             key: i,
                             value: this.initialLetters[i],
                             type: CellTypes.INITIAL,
-                            valid: true,
                         }
                     }
                     if(this.placedLetters.hasOwnProperty(i) && this.placedLetters[i] != ''){
                         return {
+                            valid: true,
+                            words: [],
                             key: i,
                             value: this.placedLetters[i],
                             type: CellTypes.PLACED,
-                            valid: true,
                         }
                     }
                     return {
+                        valid: true,
+                        words: [],
                         key: i,
                         value: '',
                         type: CellTypes.EMPTY,
-                        valid: true,
                     };
                 });
         },
