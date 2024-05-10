@@ -1,3 +1,4 @@
+// TODO: Drag words off puzzle
 // TODO: Mobile optimization
 // TODO: Puzzles
 // TODO: Persistance
@@ -29,13 +30,21 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('crossout', () => ({
         test: 'test',
         wordList: {
-            "HELLO": {state: WordStates.NOT_PLACED},
-            "WORLD": {state: WordStates.NOT_PLACED},
+            "DEAF": {state: WordStates.NOT_PLACED},
+            "DING": {state: WordStates.NOT_PLACED},
+            "EN": {state: WordStates.NOT_PLACED},
+            "FLAG": {state: WordStates.NOT_PLACED},
+            "GY": {state: WordStates.NOT_PLACED},
+            "GROG": {state: WordStates.NOT_PLACED},
+            "GROSS": {state: WordStates.NOT_PLACED},
+            "GONG": {state: WordStates.NOT_PLACED},
         },
         solvedWords: [],
         initialLetters: {
-            76: 'D',
-            33: 'H',
+            13: 'E',
+            36: 'F',
+            54: 'G',
+            63: 'G',
         },
         placedLetters: {},
         cells: [],
@@ -81,8 +90,32 @@ document.addEventListener('alpine:init', () => {
             if(!letterIndexes){
                 return false;
             }
-            if(!this.validateWordPlacement(letterIndexes)){
-                return false;
+            // Validate placement
+            let attached = false;
+            for(const {index, letter} of letterIndexes){
+                if(this.initialLetters.hasOwnProperty(index)){
+                    if(this.initialLetters[index] != letter){
+                        console.log("ignoring word placement because mismatched initial letter");
+                        return false;
+                    } else {
+                        attached = true;
+                    }
+                }
+                if(this.placedLetters.hasOwnProperty(index) && this.placedLetters[index] != ''){
+                    if(this.placedLetters[index] != letter){
+                        console.log("ignoring word placement because mismatched placed letter");
+                        return false;
+                    } else {
+                        attached = true;
+                    }
+                }
+            }
+
+            if(!attached){
+                // Disabling for now
+                // If we enable this, we need to check neighboring tiles of all letters
+                console.log("could ignore word placement because not attached");
+                // return false;
             }
             for(const {index, letter} of letterIndexes){
                 this.placedLetters[index] = letter;
@@ -102,10 +135,10 @@ document.addEventListener('alpine:init', () => {
             this.dragRotation = !this.dragRotation;
         },
         getLetterIndexes(word, index, rotated = false){
-            if(!rotated && (index%10)+word.length > 10){
+            if(!rotated && (index%10)+word.length-1 > 10){
                 return false;
             }
-            if(rotated && index + (word.length*10) > 100){
+            if(rotated && index + ((word.length-1)*10) > 100){
                 return false;
             }
             return word.split('').map((letter, i) => {
@@ -115,29 +148,6 @@ document.addEventListener('alpine:init', () => {
                     index: placeIndex,
                 };
             });
-        },
-        validateWordPlacement(letterIndexes){
-            let attached = false;
-            for(const {index, letter} of letterIndexes){
-                if(this.initialLetters.hasOwnProperty(index)){
-                    if(this.initialLetters[index] != letter){
-                        return false;
-                    } else {
-                        attached = true;
-                    }
-                }
-                if(this.placedLetters.hasOwnProperty(index) && this.placedLetters[index] != ''){
-                    if(this.placedLetters[index] != letter){
-                        return false;
-                    } else {
-                        attached = true;
-                    }
-                }
-            }
-            if(!attached){
-                return false;
-            }
-            return true;
         },
         removeWord(){
             // TODO
