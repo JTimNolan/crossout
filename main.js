@@ -1,4 +1,3 @@
-// TODO: Try dragging with placedWordList
 // TODO: Mobile optimization
 // TODO: Persistance
 // TODO: Reset buton
@@ -78,7 +77,7 @@ document.addEventListener('alpine:init', () => {
         wordList: {},
         solvedWords: [],
         initialLetters: {},
-        placedLetters: {},
+        placedWords: [],
         cells: [],
         async init(){
             let params = Object.fromEntries(new URLSearchParams(location.search));
@@ -94,30 +93,31 @@ document.addEventListener('alpine:init', () => {
         dragOffsetY: 0,
         dragRotation: false,
         startGridDrag(cell, e){
+            if(e.type == 'mousedown' && e.which != 1){
+                return;
+            }
             if(!cell.words.length){
                 return;
             }
             const wordObj = cell.words[0];
-            const firstCell = this.cells[wordObj.index];
-            // Clear cells
-            wordObj.word.split('').forEach((letter, letterIndex) => {
-                const cellIndex = wordObj.index + ((letterIndex-1) * (wordObj.rotated ? 10 : 1));
-                if(this.cells[cellIndex].words.length > 1){
-                    return;
-                }
-                this.placedLetters[cellIndex] = '';
-            });
-            this.updateCells();
             // Set up drag
             const rect = document.querySelectorAll('.grid-cell')[wordObj.index].getBoundingClientRect();
+            this.dragRotation = wordObj.rotated,
             this.dragOffsetX = 20;
             this.dragOffsetY = 20;
             this.dragX = e.pageX;
             this.dragY = e.pageY;
             this.drag = wordObj.word;
+            this.removeWord(wordObj);
+            this.updateCells();
         },
         startListDrag(word, e){
             this.dragRotation = false;
+            // Check if this word is already placed and remove if so
+            const placedWord = this.placedWords.find(wordObj => wordObj.word == word);
+            if(placedWord){
+                this.removeWord(placedWord);
+            }
             const rect = e.target.getBoundingClientRect();
             if(e.touches){
                 e = e.touches[0];
@@ -157,6 +157,7 @@ document.addEventListener('alpine:init', () => {
             }
             // Validate placement
             let attached = false;
+            const placedLetters = this.getPlacedLetters();
             for(const {index, letter} of letterIndexes){
                 if(this.initialLetters.hasOwnProperty(index)){
                     if(this.initialLetters[index] != letter){
@@ -166,8 +167,8 @@ document.addEventListener('alpine:init', () => {
                         attached = true;
                     }
                 }
-                if(this.placedLetters.hasOwnProperty(index) && this.placedLetters[index] != ''){
-                    if(this.placedLetters[index] != letter){
+                if(placedLetters.hasOwnProperty(index)){
+                    if(placedLetters[index].letter != letter){
                         console.log("ignoring word placement because mismatched placed letter");
                         return false;
                     } else {
@@ -182,9 +183,11 @@ document.addEventListener('alpine:init', () => {
                 console.log("could ignore word placement because not attached");
                 // return false;
             }
-            for(const {index, letter} of letterIndexes){
-                this.placedLetters[index] = letter;
-            }
+            this.placedWords.push({
+                index,
+                word: draggedword,
+                rotated: this.dragRotation,
+            });
             this.updateCells();
         },
         handleDropEvent(e){
@@ -214,25 +217,26 @@ document.addEventListener('alpine:init', () => {
                 };
             });
         },
-        removeWord(){
-            // TODO
+        removeWord(wordObj){
+            this.placedWords = this.placedWords.filter(x => !(x.word == wordObj.word && x.index == wordObj.index && x.rotated == wordObj.rotated));
+            console.log(this.placedWords);
         },
         clearCell(index){
-            this.placedLetters[index] = '';
+            const cell = this.cells[index];
+            if(!cell){
+                return;
+            }
+            const wordObj = cell.words[0];
+            if(!wordObj){
+                return;
+            }
+            this.removeWord(wordObj);
             this.updateCells();
         },
         updateCells(){
             this.cells = this.getCells();
             const allGridWords = this.getGridWords();
             this.validateGridWords(allGridWords);
-            const draggableGridWords = allGridWords.filter(x => this.wordList.hasOwnProperty(x.word));
-            console.log(draggableGridWords);
-            draggableGridWords.forEach(gridWord => {
-                gridWord.word.split('').forEach((letter, letterIndex) => {
-                    const cellIndex = gridWord.index + ((letterIndex-1) * (gridWord.rotated ? 10 : 1));
-                    this.cells[cellIndex].words.push(gridWord);
-                });
-            });
         },
         checkSolvedWords(){
             this.solvedWords = [];
@@ -353,32 +357,51 @@ document.addEventListener('alpine:init', () => {
                 this.wordList[word].state = WordStates.DUPLICATED;
             }
         },
+        getPlacedLetters(){
+            // Convert list of words to object of index:letter
+            const placedLetters = {};
+            this.placedWords.forEach(word => {
+                // TODO: Possibly need to check if letter is already an initial letter
+                this.getLetterIndexes(word.word, word.index, word.rotated).forEach(x => {
+                    if(placedLetters.hasOwnProperty(x.index)){
+                        placedLetters[x.index].words.push(Alpine.raw(word));
+                        return;
+                    }
+                    placedLetters[x.index] = {
+                        letter: x.letter,
+                        words: [Alpine.raw(word)],
+                    };
+                });
+            });
+            return placedLetters;
+        },
         getCells(){
+            const placedLetters = this.getPlacedLetters();
             return new Array(100)
                 .fill({value: '', type: CellTypes.EMPTY, valid: true})
                 .map((cell, i) => {
                     if(this.initialLetters.hasOwnProperty(i)){
                         return {
-                            valid: true,
-                            words: [],
                             key: i,
+                            valid: true,
+                            words: placedLetters.hasOwnProperty(i) ? placedLetters[i].words : [],
                             value: this.initialLetters[i],
                             type: CellTypes.INITIAL,
                         }
                     }
-                    if(this.placedLetters.hasOwnProperty(i) && this.placedLetters[i] != ''){
+                    if(placedLetters.hasOwnProperty(i)){
                         return {
-                            valid: true,
-                            words: [],
                             key: i,
-                            value: this.placedLetters[i],
+                            valid: true,
+                            words: placedLetters[i].words,
+                            value: placedLetters[i].letter,
                             type: CellTypes.PLACED,
                         }
                     }
                     return {
+                        key: i,
                         valid: true,
                         words: [],
-                        key: i,
                         value: '',
                         type: CellTypes.EMPTY,
                     };
